@@ -8,6 +8,7 @@
   <name>WeblogicVaadinGridExampleSpring</name>
   <properties>
     <vaadin.version>14.11.8</vaadin.version>
+    <micrometer.version>1.12.5</micrometer.version>
     <oracleServerUrl>t3://localhost:7001</oracleServerUrl>
     <oracleServerName>AdminServer</oracleServerName>
     <oracleUsername>weblogic</oracleUsername>
@@ -92,6 +93,16 @@
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-simple</artifactId>
     </dependency>
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
+      <version>${micrometer.version}</version>
+    </dependency>
+
   </dependencies>
   <build>
     <plugins>

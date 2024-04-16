@@ -1,6 +1,7 @@
 package de.dbuss.vaadindemospring.service;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.stereotype.Service;
 
 import javax.naming.*;
@@ -17,8 +18,9 @@ import java.util.List;
 public class MetricsService {
 
     private DataSource dataSource;
-
-    public MetricsService() {
+    private final MeterRegistry meterRegistry;
+    public MetricsService(MeterRegistry meterRegistry) {
+        this.meterRegistry = meterRegistry;
         try {
             Context ctx = new InitialContext();
             List<String[]> dataSourcesList = getDataSources();
@@ -28,6 +30,7 @@ public class MetricsService {
             e.printStackTrace();
         }
     }
+
     private List<String[]> getDataSources() {
         List<String[]> result = new ArrayList<>();
 
@@ -56,8 +59,48 @@ public class MetricsService {
 
         return result;
     }
-
     public String fetchMetrics() {
+        if (dataSource == null) {
+            return "DataSource not available";
+        }
+
+        StringBuilder metricsBuilder = new StringBuilder();
+
+        String sqlQuery = "SELECT b.titel, a.result FROM ekp.fvm_monitor_result a, ekp.fvm_monitoring b WHERE a.id = b.id AND a.is_active = 1";
+
+        try (Connection connection = dataSource.getConnection();
+             Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(sqlQuery)) {
+
+            while (resultSet.next()) {
+                String title = resultSet.getString("titel");
+                BigDecimal result = resultSet.getBigDecimal("result");
+
+                // Record metrics using Micrometer
+                Counter.builder("ekp_metric")
+                        .description("EKPMetric")
+                        .tags("title", title)
+                        .register(meterRegistry)
+                        .increment(result.doubleValue());
+
+                // Append metrics to the metrics string in Prometheus format
+                metricsBuilder.append("ekp_metric{title=\"")
+                        .append(escapeString(title))
+                        .append("\"} ")
+                        .append(result)
+                        .append("\n");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        // Append # EOF at the end
+        metricsBuilder.append("# EOF\n");
+
+        return metricsBuilder.toString();
+    }
+
+    public String fetchMetricsold() {
         if (dataSource == null) {
             return "DataSource not available";
         }
