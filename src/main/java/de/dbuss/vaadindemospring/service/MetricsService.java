@@ -2,6 +2,7 @@ package de.dbuss.vaadindemospring.service;
 
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.prometheus.PrometheusMeterRegistry;
 import org.springframework.stereotype.Service;
 
 import javax.naming.*;
@@ -19,8 +20,10 @@ public class MetricsService {
 
     private DataSource dataSource;
     private final MeterRegistry meterRegistry;
+    private final PrometheusMeterRegistry prometheusRegistry;
     public MetricsService(MeterRegistry meterRegistry) {
         this.meterRegistry = meterRegistry;
+        this.prometheusRegistry = (PrometheusMeterRegistry) meterRegistry;
         try {
             Context ctx = new InitialContext();
             List<String[]> dataSourcesList = getDataSources();
@@ -80,7 +83,7 @@ public class MetricsService {
                 Counter.builder("ekp_metric")
                         .description("EKPMetric")
                         .tags("title", title)
-                        .register(meterRegistry)
+                        .register(prometheusRegistry)
                         .increment(result.doubleValue());
 
                 // Append metrics to the metrics string in Prometheus format
@@ -97,7 +100,8 @@ public class MetricsService {
         // Append # EOF at the end
         metricsBuilder.append("# EOF\n");
 
-        return metricsBuilder.toString();
+       return prometheusRegistry.scrape();
+       // return metricsBuilder.toString();
     }
 
     public String fetchMetricsold() {
