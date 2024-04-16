@@ -36,8 +36,8 @@ public class Application extends SpringBootServletInitializer {
                 resource.setType(DataSource.class.getName());
                 resource.setProperty("driverClassName", "oracle.jdbc.OracleDriver");
                 resource.setProperty("url", "jdbc:oracle:thin:@//37.120.189.200:1521/XE");
-                resource.setProperty("username", "weblogic");
-                resource.setProperty("password", "web20240401");
+                resource.setProperty("username", "SYSTEM");
+                resource.setProperty("password", "Michael123");
                 context.getNamingResources().addResource(resource);
             }
         };
