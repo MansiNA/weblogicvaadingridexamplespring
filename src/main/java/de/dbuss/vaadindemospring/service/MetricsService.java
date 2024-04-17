@@ -2,6 +2,7 @@ package de.dbuss.vaadindemospring.service;
 
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tags;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
 import org.springframework.stereotype.Service;
 
@@ -13,7 +14,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class MetricsService {
@@ -21,6 +25,8 @@ public class MetricsService {
     private DataSource dataSource;
     private final MeterRegistry meterRegistry;
     private final PrometheusMeterRegistry prometheusRegistry;
+    private Map<String, AtomicInteger> gauges = new HashMap<>();
+
     public MetricsService(MeterRegistry meterRegistry) {
         this.meterRegistry = meterRegistry;
         this.prometheusRegistry = (PrometheusMeterRegistry) meterRegistry;
@@ -62,46 +68,34 @@ public class MetricsService {
 
         return result;
     }
+
     public String fetchMetrics() {
         if (dataSource == null) {
             return "DataSource not available";
         }
 
-        StringBuilder metricsBuilder = new StringBuilder();
-
-        String sqlQuery = "SELECT b.titel, a.result FROM ekp.fvm_monitor_result a, ekp.fvm_monitoring b WHERE a.id = b.id AND a.is_active = 1";
+        String sqlQuery = "SELECT a.id, b.titel, a.result FROM ekp.fvm_monitor_result a, ekp.fvm_monitoring b WHERE a.id = b.id AND a.is_active = 1";
 
         try (Connection connection = dataSource.getConnection();
              Statement statement = connection.createStatement();
              ResultSet resultSet = statement.executeQuery(sqlQuery)) {
 
             while (resultSet.next()) {
+                String id = resultSet.getString("id");
                 String title = resultSet.getString("titel");
-                BigDecimal result = resultSet.getBigDecimal("result");
+                Integer result = resultSet.getInt("result");
 
-                // Record metrics using Micrometer
-                Counter.builder("ekp_metric")
-                        .description("EKPMetric")
-                        .tags("title", title)
-                        .register(prometheusRegistry)
-                        .increment(result.doubleValue());
+                System.out.println("Wert für ID " + id + ": " + result);
 
-                // Append metrics to the metrics string in Prometheus format
-                metricsBuilder.append("ekp_metric{title=\"")
-                        .append(escapeString(title))
-                        .append("\"} ")
-                        .append(result)
-                        .append("\n");
+                AtomicInteger gauge = gauges.computeIfAbsent(title, t -> meterRegistry.gauge("ekp_metric_" + id, Tags.of("title", t + "(" + id + ")"), new AtomicInteger(0)));
+                gauge.set(result);
             }
+
         } catch (SQLException e) {
             e.printStackTrace();
         }
 
-        // Append # EOF at the end
-        metricsBuilder.append("# EOF\n");
-
-       return prometheusRegistry.scrape();
-       // return metricsBuilder.toString();
+        return prometheusRegistry.scrape();
     }
 
     public String fetchMetricsold() {

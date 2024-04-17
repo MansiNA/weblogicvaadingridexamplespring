@@ -16,7 +16,7 @@ public class MetricsController {
         this.metricsService = metricsService;
     }
 
-    @GetMapping
+    @GetMapping(produces="text/plain")
     public ResponseEntity<String> getMetrics() {
         String prometheusMetrics = metricsService.fetchMetrics();
         return ResponseEntity.ok().body(prometheusMetrics);
